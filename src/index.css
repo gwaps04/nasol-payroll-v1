@@ -1,0 +1,28 @@
+/* index.css */
+
+/* Professional, minimalist font stack */
+:root {
+  font-family: 'Inter', system-ui, -apple-system, sans-serif;
+}
+
+/* Reset any default browser padding/margin */
+html, body {
+  margin: 0;
+  padding: 0;
+  width: 100%;
+  height: 100%;
+}
+
+body {
+  /* Your requested Blue Gradient */
+  background: linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%);
+  background-attachment: fixed; /* Keeps gradient smooth on mobile */
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
+
+/* Ensure the React Root takes up the full screen so centering works */
+#root {
+  width: 100%;
+}
