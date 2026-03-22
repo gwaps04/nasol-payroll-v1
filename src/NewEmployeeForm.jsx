@@ -7,8 +7,11 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
   const [editingId, setEditingId] = useState(null); 
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formMessage, setFormMessage] = useState(null);
+  
+  // New state for searching
+  const [searchTerm, setSearchTerm] = useState('');
 
-  // Safety Delete State (Now used for Archiving)
+  // Safety Delete State
   const [deletingId, setDeletingId] = useState(null);
   const [deleteAuth, setDeleteAuth] = useState('');
 
@@ -17,7 +20,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
   }, []);
 
   const fetchEmployees = async () => {
-    // Only fetch employees where status is 'active'
     const { data } = await supabase
       .from('employees')
       .select('*')
@@ -26,6 +28,11 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
     setEmployees(data || []);
   };
 
+  // Logic to filter employees based on search input
+  const filteredEmployees = employees.filter(emp => 
+    `${emp.first_name} ${emp.last_name}`.toLowerCase().includes(searchTerm.toLowerCase())
+  );
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
@@ -33,7 +40,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
 
     try {
       if (editingId) {
-        // --- UPDATE ACTION ---
         const { error } = await supabase
           .from('employees')
           .update({ first_name: firstName, last_name: lastName })
@@ -42,7 +48,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
         if (error) throw error;
         setFormMessage({ type: 'success', text: `Successfully updated ${firstName} ${lastName}!` });
       } else {
-        // --- INSERT ACTION ---
         const { error } = await supabase
           .from('employees')
           .insert([{ first_name: firstName, last_name: lastName, status: 'active' }]);
@@ -51,7 +56,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
         setFormMessage({ type: 'success', text: `Successfully registered ${firstName} ${lastName}!` });
       }
 
-      // RESET FORM & REFRESH DATA
       setFirstName('');
       setLastName('');
       setEditingId(null);
@@ -76,7 +80,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
     if (deleteAuth !== 'DELETE') return;
     
     try {
-      // SOFT DELETE: Update status to 'inactive' to preserve payroll history
       const { error } = await supabase
         .from('employees')
         .update({ status: 'inactive' })
@@ -84,7 +87,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
       
       if (error) throw error;
 
-      // --- REFRESH & NOTIFY ---
       setFormMessage({ type: 'success', text: 'Employee moved to archives. History is preserved.' });
       setDeletingId(null);
       setDeleteAuth('');
@@ -101,7 +103,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
         <div className="col-md-8">
           <button className="btn btn-outline-light mb-4 rounded-pill px-4 fw-bold shadow-sm" onClick={onBack}>← Dashboard</button>
           
-          {/* --- FORM SECTION --- */}
           <div className="card shadow border-0 rounded-4 p-4 mb-5 text-dark">
             <h2 className="fw-bold mb-4 text-primary text-center">
               {editingId ? 'Edit Employee Info' : 'Register New Employee'}
@@ -136,11 +137,25 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
             </form>
           </div>
 
-          {/* --- LIST SECTION --- */}
           <div className="card shadow border-0 rounded-4 overflow-hidden text-dark">
             <div className="card-header bg-dark text-white py-3">
               <h5 className="m-0 fw-bold text-center">Active Employee Registry</h5>
             </div>
+            
+            {/* NEW SEARCH BAR SECTION */}
+            <div className="p-3 bg-light border-bottom">
+              <div className="input-group">
+                <span className="input-group-text bg-white border-end-0">🔍</span>
+                <input 
+                  type="text" 
+                  className="form-control border-start-0 ps-0" 
+                  placeholder="Search employee name..." 
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                />
+              </div>
+            </div>
+
             <div className="table-responsive" style={{ maxHeight: '450px', overflowY: 'auto' }}>
               <table className="table table-hover align-middle mb-0">
                 <thead className="table-light">
@@ -150,7 +165,7 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
                   </tr>
                 </thead>
                 <tbody>
-                  {employees.length > 0 ? employees.map(emp => (
+                  {filteredEmployees.length > 0 ? filteredEmployees.map(emp => (
                     <tr key={emp.id}>
                       <td className="ps-4 fw-bold">{emp.last_name}, {emp.first_name}</td>
                       <td className="text-center">
@@ -159,7 +174,7 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
                       </td>
                     </tr>
                   )) : (
-                    <tr><td colSpan="2" className="text-center py-4 text-muted">No active employees found.</td></tr>
+                    <tr><td colSpan="2" className="text-center py-4 text-muted">No matching employees found.</td></tr>
                   )}
                 </tbody>
               </table>
@@ -168,7 +183,6 @@ const NewEmployeeForm = ({ supabase, onBack }) => {
         </div>
       </div>
 
-      {/* --- ARCHIVE (SOFT DELETE) SAFETY CONFIRMATION --- */}
       {deletingId && (
         <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ backgroundColor: 'rgba(0,0,0,0.8)', zIndex: 1060 }}>
           <div className="card border-0 rounded-4 p-4 shadow-lg text-dark text-center" style={{ width: '400px' }}>

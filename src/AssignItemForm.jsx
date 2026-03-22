@@ -11,7 +11,13 @@ const AssignItemForm = ({ supabase, onBack }) => {
 
   useEffect(() => {
     const fetchData = async () => {
-      const { data: empData } = await supabase.from('employees').select('*').order('last_name', { ascending: true });
+      // FIX: Added .eq('status', 'active') to filter out deleted/archived employees
+      const { data: empData } = await supabase
+        .from('employees')
+        .select('*')
+        .eq('status', 'active') 
+        .order('last_name', { ascending: true });
+        
       const { data: itemData } = await supabase.from('items').select('*').order('item_name', { ascending: true });
       setEmployees(empData || []);
       setItems(itemData || []);
@@ -19,14 +25,13 @@ const AssignItemForm = ({ supabase, onBack }) => {
     fetchData();
   }, [supabase]);
 
-  // Automatic Computation Logic
   const selectedItemData = items.find(i => i.id === parseInt(selectedItem));
   const currentTotal = selectedItemData ? (selectedItemData.item_price * quantity).toFixed(2) : "0.00";
 
   const handleAssign = async (e) => {
     e.preventDefault();
     setIsSubmitting(true);
-    setFormMessage(null); // Clear any previous messages
+    setFormMessage(null); 
     
     const empDetails = employees.find(emp => emp.id === parseInt(selectedEmployee));
 
@@ -46,15 +51,14 @@ const AssignItemForm = ({ supabase, onBack }) => {
 
       if (error) throw error;
 
-      // --- RESET FIELDS ON SUCCESS ---
       setFormMessage({ 
         type: 'success', 
         text: `✅ Saved! ${empDetails.first_name} earned ₱${currentTotal} for ${quantity} items.` 
       });
       
-      setSelectedEmployee(''); // Reset Employee dropdown
-      setSelectedItem('');     // Reset Item dropdown
-      setQuantity(1);         // Reset Quantity to 1
+      setSelectedEmployee(''); 
+      setSelectedItem('');     
+      setQuantity(1);         
       
     } catch (err) {
       setFormMessage({ type: 'danger', text: `❌ Error: ${err.message}` });
@@ -72,7 +76,6 @@ const AssignItemForm = ({ supabase, onBack }) => {
           <div className="card shadow-lg border-0 rounded-4 p-5">
             <h2 className="fw-bold mb-4 text-info text-center">Log Work & Calculate Payout</h2>
             
-            {/* SUCCESS / ERROR NOTIFICATION */}
             {formMessage && (
               <div className={`alert alert-${formMessage.type} alert-dismissible fade show mb-4 shadow-sm animate__animated animate__fadeInDown`}>
                 <span className="fw-bold">{formMessage.text}</span>
@@ -123,7 +126,6 @@ const AssignItemForm = ({ supabase, onBack }) => {
                 />
               </div>
 
-              {/* Automatic Computation Display */}
               <div className="alert alert-secondary border-0 bg-light text-center mb-4">
                 <p className="small text-muted mb-1">Estimated Earnings</p>
                 <h3 className="fw-bold text-primary m-0">₱{currentTotal}</h3>
