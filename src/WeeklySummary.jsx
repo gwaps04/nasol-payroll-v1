@@ -63,7 +63,13 @@ const WeeklySummary = ({ supabase, onBack }) => {
       acc[name].prices.add(record.item_price);
       return acc;
     }, {});
-    setFilteredSummary(Object.values(grouped));
+
+    // WOZ EDIT: Convert the object to an array and sort it A-Z by employee name
+    const sortedSummary = Object.values(grouped).sort((a, b) => 
+      a.name.localeCompare(b.name)
+    );
+
+    setFilteredSummary(sortedSummary);
   };
 
   const grandTotalSalary = filteredSummary.reduce((sum, emp) => sum + emp.totalSalary, 0);
