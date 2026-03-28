@@ -36,6 +36,17 @@ const WeeklySummary = ({ supabase, onBack }) => {
     setLoading(false);
   };
 
+  // Helper function to format name as "LASTNAME, FirstName"
+  const formatNameLastFirst = (fullName) => {
+    if (!fullName) return "";
+    const parts = fullName.trim().split(' ');
+    if (parts.length <= 1) return fullName.toUpperCase();
+    
+    const lastName = parts.pop(); // Take the last word
+    const firstName = parts.join(' '); // Join the rest
+    return `${lastName}, ${firstName}`.toUpperCase();
+  };
+
   const applyFiltersAndGrouping = () => {
     let filtered = [...allRecords];
     
@@ -64,10 +75,12 @@ const WeeklySummary = ({ supabase, onBack }) => {
       return acc;
     }, {});
 
-    // WOZ EDIT: Convert the object to an array and sort it A-Z by employee name
-    const sortedSummary = Object.values(grouped).sort((a, b) => 
-      a.name.localeCompare(b.name)
-    );
+    // WOZ EDIT: Sort by Last Name (A-Z)
+    const sortedSummary = Object.values(grouped).sort((a, b) => {
+      const formattedA = formatNameLastFirst(a.name);
+      const formattedB = formatNameLastFirst(b.name);
+      return formattedA.localeCompare(formattedB);
+    });
 
     setFilteredSummary(sortedSummary);
   };
@@ -90,10 +103,13 @@ const WeeklySummary = ({ supabase, onBack }) => {
     const tableRows = [];
 
     filteredSummary.forEach(emp => {
+      // WOZ EDIT: Format the name as "LASTNAME, FIRSTNAME" for the PDF header
+      const displayName = formatNameLastFirst(emp.name);
+
       // 1. Add Employee Header Row
       tableRows.push([
         { 
-          content: emp.name.toUpperCase(), 
+          content: displayName, 
           styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } 
         },
         { 
@@ -106,7 +122,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
       // 2. Add Detailed Item Rows below each employee
       emp.itemsList.forEach(item => {
         tableRows.push([
-          `   ${item.payout_date}`, // Indented for visual structure
+          `   ${item.payout_date}`, 
           `   ${item.item_name}`, 
           `P${item.item_price}`, 
           item.quantity_finished, 
@@ -151,7 +167,8 @@ const WeeklySummary = ({ supabase, onBack }) => {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.setTextColor(30, 58, 138);
-    doc.text(`Employee Payslip: ${emp.name}`, 14, 20);
+    // Also using the "Last, First" format here for consistency
+    doc.text(`Employee Payslip: ${formatNameLastFirst(emp.name)}`, 14, 20);
 
     const totalAmount = emp.itemsList.reduce((sum, item) => sum + parseFloat(item.total_earned), 0);
 
@@ -209,7 +226,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
           <button className="btn btn-success px-4 rounded-pill fw-bold shadow-sm" onClick={downloadMainPDF}>📥 Main Shop PDF</button>
         </div>
 
-        {/* Filters */}
+        {/* Filters Card */}
         <div className="card shadow-lg border-0 rounded-4 p-4 mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)' }}>
           <div className="row g-3">
             <div className="col-md-4"><label className="form-label small fw-bold">Search Name</label><input type="text" className="form-control bg-dark text-white border-0 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
@@ -235,7 +252,6 @@ const WeeklySummary = ({ supabase, onBack }) => {
             <tbody>
               {filteredSummary.map((emp, idx) => (
                 <React.Fragment key={idx}>
-                  {/* MAIN SUMMARY ROW */}
                   <tr className={expandedEmployee === emp.name ? 'table-primary border-0' : ''} style={{ cursor: 'pointer' }} onClick={() => toggleExpand(emp.name)}>
                     <td className="ps-4 fw-bold">{emp.name}</td>
                     <td className="text-center text-muted small">{emp.payoutDate}</td> 
@@ -252,7 +268,6 @@ const WeeklySummary = ({ supabase, onBack }) => {
                     </td>
                   </tr>
 
-                  {/* EXPANDED DETAILED ROW */}
                   {expandedEmployee === emp.name && (
                     <tr>
                       <td colSpan="6" className="p-0 bg-light">
@@ -313,7 +328,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
           </div>
         )}
 
-        {/* Action Modals */}
+        {/* Modals for Edit/Delete */}
         {editingRecord && (
           <div className="position-fixed top-0 start-0 w-100 h-100 d-flex align-items-center justify-content-center" style={{ backgroundColor: 'rgba(0,0,0,0.6)', zIndex: 1050 }}>
             <div className="card border-0 rounded-4 p-4 shadow-lg text-dark" style={{ width: '350px' }}>
