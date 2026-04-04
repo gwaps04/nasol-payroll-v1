@@ -1,4 +1,3 @@
-// Line 1 Fix: Added "React" to the import list
 import React, { useState, useEffect } from 'react';
 import jsPDF from 'jspdf';
 import autoTable from 'jspdf-autotable';
@@ -75,7 +74,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
       return acc;
     }, {});
 
-    // WOZ EDIT: Sort by Last Name (A-Z)
+    // Sort by Last Name (A-Z)
     const sortedSummary = Object.values(grouped).sort((a, b) => {
       const formattedA = formatNameLastFirst(a.name);
       const formattedB = formatNameLastFirst(b.name);
@@ -91,7 +90,52 @@ const WeeklySummary = ({ supabase, onBack }) => {
     setExpandedEmployee(expandedEmployee === empName ? null : empName);
   };
 
-  // --- UPDATED DETAILED PDF GENERATION ---
+  // --- NEW: SUMMARY ONLY PDF GENERATION ---
+  const downloadSummaryPDF = () => {
+    const doc = new jsPDF();
+    doc.setFontSize(18);
+    doc.setTextColor(30, 58, 138); 
+    doc.text('Nasol Haircraft - Shop Payout Summary', 14, 20);
+    doc.setFontSize(10);
+    doc.text(`Period: ${fromDate || 'Start'} to ${toDate || 'Today'}`, 14, 28);
+
+    const tableRows = filteredSummary.map(emp => [
+      formatNameLastFirst(emp.name),
+      `P${Array.from(emp.prices).join(', P')}`,
+      emp.totalItems,
+      `P${emp.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
+    ]);
+    
+    // Add Final Grand Total Row
+    tableRows.push([
+      { 
+        content: 'GRAND TOTAL PAYOUT', 
+        colSpan: 3, 
+        styles: { halign: 'right', fontStyle: 'bold', fillColor: [30, 58, 138], textColor: [255, 255, 255] } 
+      },
+      { 
+        content: `PHP ${grandTotalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
+        styles: { fontStyle: 'bold', fillColor: [30, 58, 138], textColor: [255, 255, 255] } 
+      }
+    ]);
+
+    autoTable(doc, {
+      head: [["Employee Name", "Item Price(s)", "Total Items", "Salary"]],
+      body: tableRows,
+      startY: 35,
+      theme: 'grid',
+      headStyles: { fillColor: [30, 58, 138] },
+      columnStyles: {
+        1: { halign: 'center' },
+        2: { halign: 'center' },
+        3: { halign: 'right' }
+      }
+    });
+    
+    doc.save(`Shop_Payout_Summary_${new Date().toLocaleDateString()}.pdf`);
+  };
+
+  // --- ORIGINAL DETAILED PDF GENERATION ---
   const downloadMainPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -103,10 +147,8 @@ const WeeklySummary = ({ supabase, onBack }) => {
     const tableRows = [];
 
     filteredSummary.forEach(emp => {
-      // WOZ EDIT: Format the name as "LASTNAME, FIRSTNAME" for the PDF header
       const displayName = formatNameLastFirst(emp.name);
 
-      // 1. Add Employee Header Row
       tableRows.push([
         { 
           content: displayName, 
@@ -119,7 +161,6 @@ const WeeklySummary = ({ supabase, onBack }) => {
         }
       ]);
 
-      // 2. Add Detailed Item Rows below each employee
       emp.itemsList.forEach(item => {
         tableRows.push([
           `   ${item.payout_date}`, 
@@ -130,11 +171,9 @@ const WeeklySummary = ({ supabase, onBack }) => {
         ]);
       });
       
-      // Spacer row
       tableRows.push([{ content: '', colSpan: 5, styles: { cellPadding: 1 } }]);
     });
     
-    // 3. Final Grand Total Row
     tableRows.push([
       { 
         content: 'GRAND TOTAL PAYOUT (ALL EMPLOYEES)', 
@@ -167,7 +206,6 @@ const WeeklySummary = ({ supabase, onBack }) => {
     const doc = new jsPDF();
     doc.setFontSize(16);
     doc.setTextColor(30, 58, 138);
-    // Also using the "Last, First" format here for consistency
     doc.text(`Employee Payslip: ${formatNameLastFirst(emp.name)}`, 14, 20);
 
     const totalAmount = emp.itemsList.reduce((sum, item) => sum + parseFloat(item.total_earned), 0);
@@ -223,7 +261,10 @@ const WeeklySummary = ({ supabase, onBack }) => {
         <div className="d-flex justify-content-between align-items-center mb-4">
           <button className="btn btn-outline-light px-4 rounded-pill fw-bold" onClick={onBack}>← Dashboard</button>
           <h2 className="fw-bold m-0">Payroll Audit</h2>
-          <button className="btn btn-success px-4 rounded-pill fw-bold shadow-sm" onClick={downloadMainPDF}>📥 Main Shop PDF</button>
+          <div className="d-flex gap-2">
+            <button className="btn btn-primary px-4 rounded-pill fw-bold shadow-sm" onClick={downloadSummaryPDF}>📥 Print Payout only</button>
+            <button className="btn btn-success px-4 rounded-pill fw-bold shadow-sm" onClick={downloadMainPDF}>📥 Main Shop PDF</button>
+          </div>
         </div>
 
         {/* Filters Card */}
