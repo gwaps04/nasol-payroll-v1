@@ -4,16 +4,15 @@ import NewEmployeeForm from './NewEmployeeForm'
 import NewItemForm from './NewItemForm'
 import AssignItemForm from './AssignItemForm'
 import WeeklySummary from './WeeklySummary'
+import MonthlyPayoutPage from './MonthlyPayoutPage' // New Import
 
 function App() {
-  // --- AUTH & NAVIGATION STATE ---
   const [user, setUser] = useState(null)
   const [username, setUsername] = useState('') 
   const [password, setPassword] = useState('')
   const [error, setError] = useState('')
   const [currentView, setCurrentView] = useState('home') 
 
-  // --- AUTH LISTENER (Manages Session & Logout) ---
   useEffect(() => {
     const getSession = async () => {
       const { data: { session } } = await supabase.auth.getSession()
@@ -29,7 +28,6 @@ function App() {
     return () => subscription.unsubscribe()
   }, [])
 
-  // --- HANDLERS ---
   const handleLogin = async (e) => {
     e.preventDefault()
     setError('')
@@ -45,7 +43,6 @@ function App() {
     await supabase.auth.signOut()
   }
 
-  // --- SUB-COMPONENT: Dashboard View ---
   const Dashboard = () => (
     <div className="container py-5 text-white">
       <div className="d-flex justify-content-between align-items-center mb-5">
@@ -58,75 +55,66 @@ function App() {
 
       <div className="row g-4 justify-content-center text-dark">
         {/* Card 1: Add Employee */}
-        <div className="col-md-6 col-lg-3">
-          <div className="card h-100 shadow border-0 rounded-4 p-4 text-center"
+        <div className="col-md-6 col-lg-4 col-xl-2">
+          <div className="card h-100 shadow border-0 rounded-4 p-3 text-center"
                onClick={() => setCurrentView('add_employee')}
-               style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-               onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+               style={{ cursor: 'pointer', transition: 'transform 0.2s' }}>
             <div className="card-body">
-              <div className="display-4 text-primary mb-3">👤</div>
-              <h5 className="fw-bold">Add Employee</h5>
-              <p className="text-muted small">Register new workers.</p>
-              <button className="btn btn-primary btn-sm px-4 rounded-pill mt-2">Open Form</button>
+              <div className="fs-1 text-primary mb-2">👤</div>
+              <h6 className="fw-bold">Add Employee</h6>
+              <button className="btn btn-primary btn-sm w-100 rounded-pill mt-2">Open</button>
             </div>
           </div>
         </div>
 
         {/* Card 2: Manage Items */}
-        <div className="col-md-6 col-lg-3">
-          <div className="card h-100 shadow border-0 rounded-4 p-4 text-center"
+        <div className="col-md-6 col-lg-4 col-xl-2">
+          <div className="card h-100 shadow border-0 rounded-4 p-3 text-center"
                onClick={() => setCurrentView('add_item')}
-               style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-               onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+               style={{ cursor: 'pointer', transition: 'transform 0.2s' }}>
             <div className="card-body">
-              <div className="display-4 text-success mb-3">🛠️</div>
-              <h5 className="fw-bold">Manage Items</h5>
-              <p className="text-muted small">Update price list.</p>
-              <button className="btn btn-success btn-sm px-4 rounded-pill mt-2">Open Form</button>
+              <div className="fs-1 text-success mb-2">🛠️</div>
+              <h6 className="fw-bold">Manage Items</h6>
+              <button className="btn btn-success btn-sm w-100 rounded-pill mt-2">Open</button>
             </div>
           </div>
         </div>
 
         {/* Card 3: Log Work */}
-        <div className="col-md-6 col-lg-3">
-          <div className="card h-100 shadow border-0 rounded-4 p-4 text-center"
+        <div className="col-md-6 col-lg-4 col-xl-2">
+          <div className="card h-100 shadow border-0 rounded-4 p-3 text-center"
                onClick={() => setCurrentView('assign_items')}
-               style={{ cursor: 'pointer', transition: 'transform 0.2s' }}
-               onMouseOver={(e) => e.currentTarget.style.transform = 'translateY(-5px)'}
-               onMouseOut={(e) => e.currentTarget.style.transform = 'translateY(0)'}>
+               style={{ cursor: 'pointer', transition: 'transform 0.2s' }}>
             <div className="card-body">
-              <div className="display-4 text-info mb-3">📦</div>
-              <h5 className="fw-bold">Log Work</h5>
-              <p className="text-muted small">Assign items to workers.</p>
-              <button className="btn btn-info text-white btn-sm px-4 rounded-pill mt-2">Start Log</button>
+              <div className="fs-1 text-info mb-2">📦</div>
+              <h6 className="fw-bold">Log Work</h6>
+              <button className="btn btn-info text-white btn-sm w-100 rounded-pill mt-2">Start</button>
             </div>
           </div>
         </div>
 
-        {/* Card 4: Payroll Report (Blue Gradient Upgrade) */}
-        <div className="col-md-6 col-lg-3">
-          <div className="card h-100 shadow border-0 rounded-4 p-4 text-center text-white"
+        {/* Card 4: Weekly Report */}
+        <div className="col-md-6 col-lg-4 col-xl-3">
+          <div className="card h-100 shadow border-0 rounded-4 p-3 text-center text-white"
                onClick={() => setCurrentView('view_summary')}
-               style={{ 
-                 cursor: 'pointer', 
-                 background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)',
-                 transition: 'transform 0.2s, box-shadow 0.2s'
-               }}
-               onMouseOver={(e) => {
-                 e.currentTarget.style.transform = 'translateY(-5px)';
-                 e.currentTarget.style.boxShadow = '0 10px 20px rgba(0,0,0,0.3)';
-               }}
-               onMouseOut={(e) => {
-                 e.currentTarget.style.transform = 'translateY(0)';
-                 e.currentTarget.style.boxShadow = 'none';
-               }}>
+               style={{ cursor: 'pointer', background: 'linear-gradient(135deg, #1e3a8a 0%, #3b82f6 100%)' }}>
             <div className="card-body">
-              <div className="display-4 mb-3 text-white">📊</div>
-              <h5 className="fw-bold">Payroll Report</h5>
-              <p className="small text-white-50">Saturday Payout Summary.</p>
-              <button className="btn btn-light btn-sm px-4 rounded-pill fw-bold text-primary mt-2 shadow-sm">View Report</button>
+              <div className="fs-1 mb-2">📊</div>
+              <h6 className="fw-bold">Weekly Report</h6>
+              <button className="btn btn-light btn-sm w-100 rounded-pill fw-bold text-primary mt-2 shadow-sm">View</button>
+            </div>
+          </div>
+        </div>
+
+        {/* Card 5: Monthly Payout (NEW) */}
+        <div className="col-md-6 col-lg-4 col-xl-3">
+          <div className="card h-100 shadow border-0 rounded-4 p-3 text-center text-white"
+               onClick={() => setCurrentView('monthly_payout')}
+               style={{ cursor: 'pointer', background: 'linear-gradient(135deg, #6d28d9 0%, #a855f7 100%)' }}>
+            <div className="card-body">
+              <div className="fs-1 mb-2">📅</div>
+              <h6 className="fw-bold">Monthly Payout</h6>
+              <button className="btn btn-light btn-sm w-100 rounded-pill fw-bold text-purple mt-2 shadow-sm" style={{color: '#6d28d9'}}>View Monthly</button>
             </div>
           </div>
         </div>
@@ -134,7 +122,6 @@ function App() {
     </div>
   )
 
-  // --- NAVIGATION ROUTING ---
   if (user) {
     switch(currentView) {
       case 'add_employee':
@@ -145,12 +132,13 @@ function App() {
         return <AssignItemForm supabase={supabase} onBack={() => setCurrentView('home')} />
       case 'view_summary':
         return <WeeklySummary supabase={supabase} onBack={() => setCurrentView('home')} />
+      case 'monthly_payout':
+        return <MonthlyPayoutPage supabase={supabase} onBack={() => setCurrentView('home')} />
       default:
         return <Dashboard />
     }
   }
 
-  // --- LOGIN VIEW ---
   return (
     <div className="container">
       <div className="row justify-content-center mt-5 pt-5">
@@ -162,17 +150,11 @@ function App() {
               <form onSubmit={handleLogin}>
                 <div className="mb-3 text-start">
                   <label className="form-label small fw-semibold">Email</label>
-                  <input 
-                    type="email" className="form-control form-control-lg bg-light border-0 px-3"
-                    placeholder="name@example.com" value={username} onChange={(e) => setUsername(e.target.value)} required 
-                  />
+                  <input type="email" className="form-control form-control-lg bg-light border-0 px-3" value={username} onChange={(e) => setUsername(e.target.value)} required />
                 </div>
                 <div className="mb-4 text-start">
                   <label className="form-label small fw-semibold">Password</label>
-                  <input 
-                    type="password" className="form-control form-control-lg bg-light border-0 px-3"
-                    placeholder="Enter password" value={password} onChange={(e) => setPassword(e.target.value)} required 
-                  />
+                  <input type="password" className="form-control form-control-lg bg-light border-0 px-3" value={password} onChange={(e) => setPassword(e.target.value)} required />
                 </div>
                 {error && <div className="alert alert-danger py-2 small">{error}</div>}
                 <button type="submit" className="btn btn-primary btn-lg w-100 fw-bold shadow-sm rounded-3">Login</button>
