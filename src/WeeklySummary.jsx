@@ -20,15 +20,29 @@ const WeeklySummary = ({ supabase, onBack }) => {
   const [deletingRecord, setDeletingRecord] = useState(null);
   const [deleteAuth, setDeleteAuth] = useState('');
 
-  useEffect(() => { fetchData(); }, []);
-  useEffect(() => { applyFiltersAndGrouping(); }, [searchTerm, fromDate, toDate, allRecords]);
+  // UPDATED: Re-fetch from DB whenever dates change to bypass local row limits
+  useEffect(() => { 
+    fetchData(); 
+  }, [fromDate, toDate]);
+
+  useEffect(() => { 
+    applyFiltersAndGrouping(); 
+  }, [searchTerm, allRecords]);
 
   const fetchData = async () => {
     setLoading(true);
-    const { data, error } = await supabase
+    
+    let query = supabase
         .from('payroll_records')
         .select('*')
         .order('payout_date', { ascending: false });
+
+    // Server-side filtering: Ensures we get data even if it's beyond the 1000th row
+    if (fromDate) query = query.gte('payout_date', fromDate);
+    if (toDate) query = query.lte('payout_date', toDate);
+    
+    // Increase range to handle your high-volume shop data
+    const { data, error } = await query.range(0, 5000);
     
     if (error) console.error(error);
     else setAllRecords(data || []);
@@ -38,7 +52,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
   // Helper function to format name as "LASTNAME, FirstName"
   const formatNameLastFirst = (fullName) => {
     if (!fullName) return "";
-    const parts = fullName.trim().split(' ');
+    const parts = fullName.trim().split(/\s+/);
     if (parts.length <= 1) return fullName.toUpperCase();
     
     const lastName = parts.pop(); // Take the last word
@@ -49,11 +63,10 @@ const WeeklySummary = ({ supabase, onBack }) => {
   const applyFiltersAndGrouping = () => {
     let filtered = [...allRecords];
     
+    // Local search filter for names
     if (searchTerm) {
         filtered = filtered.filter(r => r.employee_name.toLowerCase().includes(searchTerm.toLowerCase()));
     }
-    if (fromDate) filtered = filtered.filter(r => r.payout_date >= fromDate);
-    if (toDate) filtered = filtered.filter(r => r.payout_date <= toDate);
 
     const grouped = filtered.reduce((acc, record) => {
       const name = record.employee_name;
@@ -90,7 +103,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
     setExpandedEmployee(expandedEmployee === empName ? null : empName);
   };
 
-  // --- NEW: SUMMARY ONLY PDF GENERATION ---
+  // --- SUMMARY ONLY PDF GENERATION ---
   const downloadSummaryPDF = () => {
     const doc = new jsPDF();
     doc.setFontSize(18);
@@ -106,25 +119,17 @@ const WeeklySummary = ({ supabase, onBack }) => {
       `P${emp.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`
     ]);
     
-    // Add Final Grand Total Row
-    tableRows.push([
-      { 
-        content: 'GRAND TOTAL PAYOUT', 
-        colSpan: 3, 
-        styles: { halign: 'right', fontStyle: 'bold', fillColor: [30, 58, 138], textColor: [255, 255, 255] } 
-      },
-      { 
-        content: `PHP ${grandTotalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
-        styles: { fontStyle: 'bold', fillColor: [30, 58, 138], textColor: [255, 255, 255] } 
-      }
-    ]);
-
     autoTable(doc, {
       head: [["Employee Name", "Item Price(s)", "Total Items", "Salary"]],
       body: tableRows,
       startY: 35,
       theme: 'grid',
       headStyles: { fillColor: [30, 58, 138] },
+      foot: [[
+        { content: 'GRAND TOTAL PAYOUT', colSpan: 3, styles: { halign: 'right', fontStyle: 'bold' } },
+        { content: `PHP ${grandTotalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold' } }
+      ]],
+      showFoot: 'lastPage',
       columnStyles: {
         1: { halign: 'center' },
         2: { halign: 'center' },
@@ -208,8 +213,6 @@ const WeeklySummary = ({ supabase, onBack }) => {
     doc.setTextColor(30, 58, 138);
     doc.text(`Employee Payslip: ${formatNameLastFirst(emp.name)}`, 14, 20);
 
-    const totalAmount = emp.itemsList.reduce((sum, item) => sum + parseFloat(item.total_earned), 0);
-
     const rows = emp.itemsList.map(i => [
       i.payout_date, 
       i.item_name, 
@@ -219,15 +222,8 @@ const WeeklySummary = ({ supabase, onBack }) => {
     ]);
 
     rows.push([
-      { 
-        content: 'TOTAL PAYOUT', 
-        colSpan: 4, 
-        styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } 
-      },
-      { 
-        content: `PHP ${totalAmount.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, 
-        styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } 
-      }
+      { content: 'TOTAL PAYOUT', colSpan: 4, styles: { halign: 'right', fontStyle: 'bold', fillColor: [240, 240, 240] } },
+      { content: `PHP ${emp.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}`, styles: { fontStyle: 'bold', fillColor: [240, 240, 240] } }
     ]);
 
     autoTable(doc, {
@@ -270,10 +266,10 @@ const WeeklySummary = ({ supabase, onBack }) => {
         {/* Filters Card */}
         <div className="card shadow-lg border-0 rounded-4 p-4 mb-4" style={{ backgroundColor: 'rgba(255, 255, 255, 0.1)', backdropFilter: 'blur(10px)' }}>
           <div className="row g-3">
-            <div className="col-md-4"><label className="form-label small fw-bold">Search Name</label><input type="text" className="form-control bg-dark text-white border-0 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} /></div>
+            <div className="col-md-4"><label className="form-label small fw-bold">Search Name</label><input type="text" className="form-control bg-dark text-white border-0 shadow-sm" value={searchTerm} onChange={(e) => setSearchTerm(e.target.value)} placeholder="Filter visible names..." /></div>
             <div className="col-md-3"><label className="form-label small fw-bold">From</label><input type="date" className="form-control bg-dark text-white border-0 shadow-sm" value={fromDate} onChange={(e) => setFromDate(e.target.value)} /></div>
             <div className="col-md-3"><label className="form-label small fw-bold">To</label><input type="date" className="form-control bg-dark text-white border-0 shadow-sm" value={toDate} onChange={(e) => setToDate(e.target.value)} /></div>
-            <div className="col-md-2 d-flex align-items-end"><button className="btn btn-info w-100 fw-bold text-white shadow-sm" onClick={() => {setSearchTerm(''); setFromDate(''); setToDate('');}}>Clear</button></div>
+            <div className="col-md-2 d-flex align-items-end"><button className="btn btn-info w-100 fw-bold text-white shadow-sm" onClick={() => {setSearchTerm(''); setFromDate(''); setToDate('');}}>Clear All</button></div>
           </div>
         </div>
 
@@ -283,7 +279,7 @@ const WeeklySummary = ({ supabase, onBack }) => {
             <thead style={{ backgroundColor: '#0f172a', color: 'white' }}>
               <tr>
                 <th className="ps-4 py-3">Employee</th>
-                <th className="text-center">Payout Date</th> 
+                <th className="text-center">Latest Payout</th> 
                 <th className="text-center">Item Price(s)</th>
                 <th className="text-center">Total Items</th>
                 <th className="text-end">Salary</th>
@@ -291,67 +287,73 @@ const WeeklySummary = ({ supabase, onBack }) => {
               </tr>
             </thead>
             <tbody>
-              {filteredSummary.map((emp, idx) => (
-                <React.Fragment key={idx}>
-                  <tr className={expandedEmployee === emp.name ? 'table-primary border-0' : ''} style={{ cursor: 'pointer' }} onClick={() => toggleExpand(emp.name)}>
-                    <td className="ps-4 fw-bold">{emp.name}</td>
-                    <td className="text-center text-muted small">{emp.payoutDate}</td> 
-                    <td className="text-center text-muted">₱{Array.from(emp.prices).join(', ₱')}</td>
-                    <td className="text-center">{emp.totalItems}</td>
-                    <td className="text-end fw-bold text-primary">₱{emp.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
-                    <td className="text-center pe-4">
-                      <button 
-                        className={`btn btn-sm rounded-pill px-3 shadow-sm fw-bold ${expandedEmployee === emp.name ? 'btn-dark' : 'btn-primary'}`}
-                        onClick={(e) => { e.stopPropagation(); toggleExpand(emp.name); }}
-                      >
-                        {expandedEmployee === emp.name ? 'Hide Details' : 'See All'}
-                      </button>
-                    </td>
-                  </tr>
-
-                  {expandedEmployee === emp.name && (
-                    <tr>
-                      <td colSpan="6" className="p-0 bg-light">
-                        <div className="p-4 border-start border-primary border-4 animate__animated animate__fadeIn">
-                          <div className="d-flex justify-content-between align-items-center mb-3">
-                            <h6 className="m-0 fw-bold text-dark text-uppercase">Detailed Records: {emp.name}</h6>
-                            <button className="btn btn-sm btn-outline-primary fw-bold" onClick={() => downloadIndividualPDF(emp)}>🖨️ Print Payslip</button>
-                          </div>
-                          <div className="table-responsive rounded-3 shadow-sm">
-                            <table className="table table-sm table-bordered mb-0 bg-white">
-                              <thead className="table-dark">
-                                <tr>
-                                  <th className="small">Date</th>
-                                  <th className="small">Item Description</th>
-                                  <th className="small text-center">Unit Price</th>
-                                  <th className="small text-center">Qty</th>
-                                  <th className="small text-end">Subtotal</th>
-                                  <th className="small text-center">Manage</th>
-                                </tr>
-                              </thead>
-                              <tbody>
-                                {emp.itemsList.map((item, i) => (
-                                  <tr key={i}>
-                                    <td className="small">{item.payout_date}</td>
-                                    <td className="small">{item.item_name}</td>
-                                    <td className="small text-center">₱{item.item_price}</td>
-                                    <td className="small text-center fw-bold">{item.quantity_finished}</td>
-                                    <td className="small text-end fw-bold text-primary">₱{item.total_earned}</td>
-                                    <td className="small text-center">
-                                      <button className="btn btn-link btn-sm text-warning p-0 me-2" onClick={() => setEditingRecord({...item})}>Edit</button>
-                                      <button className="btn btn-link btn-sm text-danger p-0" onClick={() => setDeletingRecord(item)}>Delete</button>
-                                    </td>
-                                  </tr>
-                                ))}
-                              </tbody>
-                            </table>
-                          </div>
-                        </div>
+              {loading ? (
+                <tr><td colSpan="6" className="text-center py-5">Loading records from server...</td></tr>
+              ) : filteredSummary.length === 0 ? (
+                <tr><td colSpan="6" className="text-center py-5">No records found for these dates.</td></tr>
+              ) : (
+                filteredSummary.map((emp, idx) => (
+                  <React.Fragment key={idx}>
+                    <tr className={expandedEmployee === emp.name ? 'table-primary border-0' : ''} style={{ cursor: 'pointer' }} onClick={() => toggleExpand(emp.name)}>
+                      <td className="ps-4 fw-bold">{formatNameLastFirst(emp.name)}</td>
+                      <td className="text-center text-muted small">{emp.payoutDate}</td> 
+                      <td className="text-center text-muted">₱{Array.from(emp.prices).sort().join(', ₱')}</td>
+                      <td className="text-center">{emp.totalItems}</td>
+                      <td className="text-end fw-bold text-primary">₱{emp.totalSalary.toLocaleString(undefined, { minimumFractionDigits: 2 })}</td>
+                      <td className="text-center pe-4">
+                        <button 
+                          className={`btn btn-sm rounded-pill px-3 shadow-sm fw-bold ${expandedEmployee === emp.name ? 'btn-dark' : 'btn-primary'}`}
+                          onClick={(e) => { e.stopPropagation(); toggleExpand(emp.name); }}
+                        >
+                          {expandedEmployee === emp.name ? 'Hide Details' : 'See All'}
+                        </button>
                       </td>
                     </tr>
-                  )}
-                </React.Fragment>
-              ))}
+
+                    {expandedEmployee === emp.name && (
+                      <tr>
+                        <td colSpan="6" className="p-0 bg-light">
+                          <div className="p-4 border-start border-primary border-4">
+                            <div className="d-flex justify-content-between align-items-center mb-3">
+                              <h6 className="m-0 fw-bold text-dark text-uppercase">Detailed Records: {emp.name}</h6>
+                              <button className="btn btn-sm btn-outline-primary fw-bold" onClick={() => downloadIndividualPDF(emp)}>🖨️ Print Payslip</button>
+                            </div>
+                            <div className="table-responsive rounded-3 shadow-sm">
+                              <table className="table table-sm table-bordered mb-0 bg-white">
+                                <thead className="table-dark">
+                                  <tr>
+                                    <th className="small">Date</th>
+                                    <th className="small">Item Description</th>
+                                    <th className="small text-center">Unit Price</th>
+                                    <th className="small text-center">Qty</th>
+                                    <th className="small text-end">Subtotal</th>
+                                    <th className="small text-center">Manage</th>
+                                  </tr>
+                                </thead>
+                                <tbody>
+                                  {emp.itemsList.map((item, i) => (
+                                    <tr key={i}>
+                                      <td className="small">{item.payout_date}</td>
+                                      <td className="small">{item.item_name}</td>
+                                      <td className="small text-center">₱{item.item_price}</td>
+                                      <td className="small text-center fw-bold">{item.quantity_finished}</td>
+                                      <td className="small text-end fw-bold text-primary">₱{item.total_earned}</td>
+                                      <td className="small text-center">
+                                        <button className="btn btn-link btn-sm text-warning p-0 me-2" onClick={() => setEditingRecord({...item})}>Edit</button>
+                                        <button className="btn btn-link btn-sm text-danger p-0" onClick={() => setDeletingRecord(item)}>Delete</button>
+                                      </td>
+                                    </tr>
+                                  ))}
+                                </tbody>
+                              </table>
+                            </div>
+                          </div>
+                        </td>
+                      </tr>
+                    )}
+                  </React.Fragment>
+                ))
+              )}
             </tbody>
           </table>
         </div>
